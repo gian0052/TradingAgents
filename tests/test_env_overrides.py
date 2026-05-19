@@ -26,6 +26,9 @@ def test_no_env_uses_built_in_defaults(monkeypatch):
     assert dc.DEFAULT_CONFIG["backend_url"] is None
     assert dc.DEFAULT_CONFIG["max_debate_rounds"] == 1
     assert dc.DEFAULT_CONFIG["checkpoint_enabled"] is False
+    assert dc.DEFAULT_CONFIG["execution_mode"] == "off"
+    assert dc.DEFAULT_CONFIG["enable_order_execution"] is False
+    assert dc.DEFAULT_CONFIG["max_order_usdt"] == 25.0
 
 
 def test_string_overrides(monkeypatch):
@@ -36,12 +39,24 @@ def test_string_overrides(monkeypatch):
         TRADINGAGENTS_QUICK_THINK_LLM="gemini-3-flash-preview",
         TRADINGAGENTS_LLM_BACKEND_URL="https://example.invalid/v1",
         TRADINGAGENTS_OUTPUT_LANGUAGE="Chinese",
+        TRADINGAGENTS_EXECUTION_MODE="paper",
+        TRADINGAGENTS_BINANCE_SYMBOL="BTCUSDT",
+        TRADINGAGENTS_BINANCE_DEFAULT_QUOTE_ASSET="USDT",
     )
     assert dc.DEFAULT_CONFIG["llm_provider"] == "google"
     assert dc.DEFAULT_CONFIG["deep_think_llm"] == "gemini-3-pro-preview"
     assert dc.DEFAULT_CONFIG["quick_think_llm"] == "gemini-3-flash-preview"
     assert dc.DEFAULT_CONFIG["backend_url"] == "https://example.invalid/v1"
     assert dc.DEFAULT_CONFIG["output_language"] == "Chinese"
+    assert dc.DEFAULT_CONFIG["execution_mode"] == "paper"
+    assert dc.DEFAULT_CONFIG["binance_symbol"] == "BTCUSDT"
+    assert dc.DEFAULT_CONFIG["binance_default_quote_asset"] == "USDT"
+
+
+def test_float_coercion(monkeypatch):
+    dc = _reload_with_env(monkeypatch, TRADINGAGENTS_MAX_ORDER_USDT="12.50")
+    assert dc.DEFAULT_CONFIG["max_order_usdt"] == 12.5
+    assert isinstance(dc.DEFAULT_CONFIG["max_order_usdt"], float)
 
 
 def test_int_coercion(monkeypatch):
@@ -64,8 +79,13 @@ def test_int_coercion(monkeypatch):
     ],
 )
 def test_bool_coercion(monkeypatch, raw, expected):
-    dc = _reload_with_env(monkeypatch, TRADINGAGENTS_CHECKPOINT_ENABLED=raw)
+    dc = _reload_with_env(
+        monkeypatch,
+        TRADINGAGENTS_CHECKPOINT_ENABLED=raw,
+        TRADINGAGENTS_ENABLE_ORDER_EXECUTION=raw,
+    )
     assert dc.DEFAULT_CONFIG["checkpoint_enabled"] is expected
+    assert dc.DEFAULT_CONFIG["enable_order_execution"] is expected
 
 
 def test_empty_env_value_is_passthrough(monkeypatch):

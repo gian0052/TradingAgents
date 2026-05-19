@@ -17,6 +17,11 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_MAX_RISK_ROUNDS":      "max_risk_discuss_rounds",
     "TRADINGAGENTS_CHECKPOINT_ENABLED":   "checkpoint_enabled",
     "TRADINGAGENTS_BENCHMARK_TICKER":     "benchmark_ticker",
+    "TRADINGAGENTS_EXECUTION_MODE":        "execution_mode",
+    "TRADINGAGENTS_ENABLE_ORDER_EXECUTION": "enable_order_execution",
+    "TRADINGAGENTS_MAX_ORDER_USDT":        "max_order_usdt",
+    "TRADINGAGENTS_BINANCE_SYMBOL":        "binance_symbol",
+    "TRADINGAGENTS_BINANCE_DEFAULT_QUOTE_ASSET": "binance_default_quote_asset",
 }
 
 
@@ -67,6 +72,14 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # Checkpoint/resume: when True, LangGraph saves state after each node
     # so a crashed run can resume from the last successful step.
     "checkpoint_enabled": False,
+    # Optional downstream execution. Defaults are intentionally inert:
+    # "paper" enables the Binance Spot Testnet executor, while
+    # enable_order_execution=False produces only a dry-run plan.
+    "execution_mode": "off",
+    "enable_order_execution": False,
+    "max_order_usdt": 25.0,
+    "binance_symbol": None,
+    "binance_default_quote_asset": "USDT",
     # Output language for analyst reports and final decision
     # Internal agent debate stays in English for reasoning quality
     "output_language": "English",

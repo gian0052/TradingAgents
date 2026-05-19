@@ -28,6 +28,11 @@ from tradingagents.graph.analyst_execution import (
     sync_analyst_tracker_from_chunk,
 )
 from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.execution import (
+    BinancePaperConfig,
+    BinancePaperExecutionError,
+    BinancePaperExecutor,
+)
 from cli.models import AnalystType
 from cli.utils import *
 from cli.announcements import fetch_announcements, display_announcements
@@ -832,6 +837,58 @@ def display_complete_report(final_state):
             console.print(Panel(Markdown(risk["judge_decision"]), title="Portfolio Manager", border_style="blue", padding=(1, 2)))
 
 
+def run_optional_paper_execution(config, selections, decision: str, final_state, report_dir: Path):
+    """Run the Binance Spot Testnet executor when configured.
+
+    ``TRADINGAGENTS_EXECUTION_MODE=paper`` enables this block. With
+    ``TRADINGAGENTS_ENABLE_ORDER_EXECUTION=false`` it writes only a dry-run
+    plan; with the flag set to true it still asks for one final CLI
+    confirmation before submitting an order to Spot Testnet.
+    """
+    paper_config = BinancePaperConfig.from_config(config)
+    if not paper_config.active:
+        return None
+
+    if paper_config.enable_order_execution:
+        console.print(
+            "\n[yellow]Paper execution is enabled for Binance Spot Testnet.[/yellow]"
+        )
+        confirm = typer.prompt(
+            "Submit this paper order to Binance Spot Testnet?",
+            default="N",
+        ).strip().upper()
+        if confirm not in ("Y", "YES"):
+            paper_config.enable_order_execution = False
+            console.print("[yellow]Order submission skipped; writing dry-run plan instead.[/yellow]")
+
+    try:
+        executor = BinancePaperExecutor(paper_config)
+        result = executor.execute(
+            ticker=selections["ticker"],
+            rating=decision,
+            final_decision=final_state["final_trade_decision"],
+            log_dir=report_dir,
+        )
+    except BinancePaperExecutionError as exc:
+        console.print(f"[red]Binance paper execution error:[/red] {exc}")
+        return None
+
+    if result.status == "skipped":
+        console.print(f"[cyan]Paper execution:[/cyan] {result.message}")
+    elif result.dry_run:
+        console.print(
+            f"[cyan]Paper execution dry-run:[/cyan] {result.action} {result.symbol} "
+            f"(max {result.max_order_usdt} USDT)"
+        )
+    else:
+        console.print(
+            f"[green]Paper order submitted:[/green] {result.action} {result.symbol} "
+            f"(Spot Testnet)"
+        )
+    console.print(f"[dim]Execution log:[/dim] {report_dir / 'binance_paper_execution.json'}")
+    return result
+
+
 def update_research_team_status(status):
     """Update status for research team members (not Trader)."""
     research_team = ["Bull Researcher", "Bear Researcher", "Research Manager"]
@@ -1239,6 +1296,7 @@ def run_analysis(checkpoint: bool = False):
     # Post-analysis prompts (outside Live context for clean interaction)
     console.print("\n[bold cyan]Analysis Complete![/bold cyan]\n")
     console.print(f"[dim]{analyst_wall_time_tracker.format_summary()}[/dim]")
+    run_optional_paper_execution(config, selections, decision, final_state, report_dir)
 
     # Prompt to save report
     save_choice = typer.prompt("Save report?", default="Y").strip().upper()
